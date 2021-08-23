@@ -1,9 +1,9 @@
 use foundationr::{NSMutableURLRequest, NSURL, NSData, NSURLSession,magic_string::*};
-use objr::bindings::{StrongMutCell, objc_nsstring};
+use objr::bindings::{StrongMutCell};
 use super::Error;
 use crate::response::Response;
 use foundationr::magic_string::MagicString;
-use crate::client::{ActiveClient, with_client};
+use crate::client::{ActiveClient};
 
 pub struct Request<'a> {
     request: StrongMutCell<NSMutableURLRequest>,
