@@ -1,28 +1,28 @@
-use foundationr::{NSData};
+use foundationr::{NSData, autoreleasepool};
 use objr::bindings::{StrongCell};
 use std::convert::TryInto;
-use crate::client::ActiveClient;
 
 ///An opaque data type, may wrap a platform-specific buffer
 #[derive(Debug)]
-pub struct Data<'a> {
+pub struct Data {
     nsdata: StrongCell<NSData>,
-    client: &'a ActiveClient
 }
-impl<'a> Data<'a> {
+impl Data {
     pub fn as_slice(&self) -> &[u8] {
-        self.nsdata.as_slice(&self.client.active_pool())
+        autoreleasepool(|pool| {
+            self.nsdata.as_slice(pool)
+        })
     }
 }
-pub struct Response<'a>{
+pub struct Response{
     response: StrongCell<foundationr::NSURLResponse>,
-    data: Data<'a>,
+    data: Data,
 }
-impl<'a> Response<'a> {
-    pub fn new(response: StrongCell<foundationr::NSURLResponse>, data: StrongCell<foundationr::NSData>, client: &'a ActiveClient) -> Response<'a> {
+impl Response {
+    pub fn new(response: StrongCell<foundationr::NSURLResponse>, data: StrongCell<foundationr::NSData>) -> Response {
         Response {
             response,
-            data: Data{nsdata: data,client},
+            data: Data{nsdata: data},
         }
     }
     fn data(&self) -> &Data {
@@ -33,13 +33,16 @@ impl<'a> Response<'a> {
     /// If HTTP code suggests 'success', returns Ok(data).
     /// Otherwise, returns Err(statusCode,data).
     pub fn check_status(&self) -> Result<&Data, (u16, &Data)> {
-        let code = self.response.statusCode(&self.data.client.active_pool());
-        if code >= 200 && code <= 299 {
-            Ok(self.data())
-        }
-        else {
-            Err((code.try_into().unwrap(),self.data()))
-        }
+        autoreleasepool(|pool| {
+            let code = self.response.statusCode(pool);
+            if code >= 200 && code <= 299 {
+                Ok(self.data())
+            }
+            else {
+                Err((code.try_into().unwrap(),self.data()))
+            }
+        })
+
     }
 
 }

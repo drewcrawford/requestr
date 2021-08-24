@@ -8,6 +8,7 @@ edition = "2018"
 [dependencies]
 foundationr = {path = "../foundationr",features=["nsurlsession","async"]}
 objr = {path = "../objr"}
+blocksr = {path = "../blocksr",features=["continuation"]}
 
 [dev-dependencies]
 kiruna = {path = "../kiruna",features=["test"]}

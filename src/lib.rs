@@ -23,10 +23,8 @@ use objr::bindings::ActiveAutoreleasePool;
 
 mod request;
 mod response;
-mod client;
 pub use request::Request;
 pub use response::Response;
-pub use client::{with_client,with_client_async,ActiveClient};
 
 #[derive(Debug)]
 #[non_exhaustive]
