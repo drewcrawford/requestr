@@ -1,6 +1,7 @@
 use foundationr::{NSData, autoreleasepool};
 use objr::bindings::{StrongCell};
 use std::convert::TryInto;
+use std::path::{PathBuf, Path};
 
 ///An opaque data type, may wrap a platform-specific buffer
 #[derive(Debug)]
@@ -43,6 +44,18 @@ impl Response {
             }
         })
 
+    }
+
+}
+
+#[derive(Debug)]
+pub struct Downloaded(tempfile::TempDir,PathBuf);
+impl Downloaded {
+    pub fn as_path(&self) -> &Path {
+        &self.1
+    }
+    pub(crate) fn new(dir: tempfile::TempDir, path_buf: PathBuf) -> Self {
+        Self(dir,path_buf)
     }
 
 }

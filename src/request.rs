@@ -1,14 +1,33 @@
-use foundationr::{NSMutableURLRequest, NSURL, NSData, NSURLSession, magic_string::*, autoreleasepool};
-use objr::bindings::{StrongMutCell, objc_nsstring, AutoreleasePool};
+use foundationr::{NSMutableURLRequest, NSURL, NSData, NSURLSession, magic_string::*, autoreleasepool, NSURLSessionDataTask, NSURLSessionDownloadTask};
+use objr::bindings::{StrongMutCell, objc_nsstring, AutoreleasePool, ActiveAutoreleasePool};
 use super::Error;
-use crate::response::Response;
+use crate::response::{Response, Downloaded};
 use foundationr::magic_string::MagicString;
 use blocksr::continuation::Continuation;
+use std::path::{PathBuf};
+use tempfile::tempdir;
 
 pub struct Request {
     request: StrongMutCell<NSMutableURLRequest>,
+    file_name: String
 }
 
+struct DataTaskDropper(StrongMutCell<NSURLSessionDataTask>);
+impl Drop for DataTaskDropper {
+    fn drop(&mut self) {
+        autoreleasepool(|pool| {
+            self.0.cancel(pool)
+        });
+    }
+}
+struct DownloadTaskDropper(StrongMutCell<NSURLSessionDownloadTask>);
+impl Drop for DownloadTaskDropper {
+    fn drop(&mut self) {
+        autoreleasepool(|pool| {
+            self.0.cancel(pool)
+        });
+    }
+}
 
 impl Request {
     ///Create a new builder with the given URL.
@@ -21,16 +40,25 @@ impl Request {
                                      Result<Request, Error> {
         let request = autoreleasepool(|pool| {
             let url_i = url.clone().as_intermediate_string(pool);
-            let nsurl = NSURL::from_string(url_i.as_nsstring(), pool).ok_or(Error::InvalidURL(url.to_owned()))?;
+            let nsurl = NSURL::from_string(url_i.as_nsstring(), pool).ok_or(Error::InvalidURL(url.clone().to_owned()))?;
             Ok(NSMutableURLRequest::from_url(&nsurl,pool))
         })?;
+        let url_buffer = url.clone().to_owned();
+        let proposed_file_name = url_buffer.rsplit("/").next().ok_or(Error::InvalidURL(url.to_owned()))?;
+        let file_name =  if proposed_file_name.is_empty() {
+            "requestsr"
+        }
+        else {
+            proposed_file_name
+        }.to_owned();
         Ok(Request {
-            request
+            request,
+            file_name
         })
 
     }
     ///Set (or unset) a header field
-    pub fn header<K: MagicString,V:MagicString>(mut self, key: K,value: Option<V>) -> Self {
+    pub fn header<K: MagicString,V:MagicString>(&mut self, key: K,value: Option<V>) -> &mut Self {
         autoreleasepool(|pool| {
             let key = key.as_intermediate_string(pool);
             let key = key.as_nsstring();
@@ -44,7 +72,7 @@ impl Request {
         })
     }
     ///Set the HTTP method.
-    pub fn method<M: MagicString>(mut self, method: M) -> Self{
+    pub fn method<M: MagicString>(&mut self, method: M) -> &mut Self{
         autoreleasepool(|pool| {
             let method = method.as_intermediate_string(pool);
             let method = method.as_nsstring();
@@ -54,7 +82,7 @@ impl Request {
 
     }
     ///Set the HTTP body data.
-    pub fn body(mut self, body: Box<[u8]>) -> Self {
+    pub fn body(&mut self, body: Box<[u8]>) -> &mut Self {
         autoreleasepool(|pool| {
             let data = NSData::from_boxed_bytes(body,pool);
             //this property is declared copy, so I believe we copy this into the request
@@ -63,7 +91,8 @@ impl Request {
         })
 
     }
-    pub async fn perform(self) -> Result<Response,Error> {
+
+    pub async fn perform(&mut self) -> Result<Response,Error> {
         //Need to manually implement this to avoid holding the autoreleasepool over a suspend point
         let continuation = {
             let pool = unsafe{ AutoreleasePool::new() };
@@ -73,7 +102,7 @@ impl Request {
                 completion.complete(result);
             });
             task.resume(&pool);
-            continuation.accept(task);
+            continuation.accept(DataTaskDropper(task));
             continuation
         };
         let result = continuation.await
@@ -86,10 +115,48 @@ impl Request {
         Ok(Response::new(result.1, result.0))
     }
 
+    ///Downloads the request into a file.
+    ///
+    /// The file will be located in a temporary directory and will be deleted when the return value is dropped.
+    pub async fn download(&mut self) -> Result<Downloaded,Error>{
+        //Need to manually implement this to a) avoid holding the autoreleasepool over a suspend point, b) move inside closure
+        let continuation = {
+            let pool = unsafe{ AutoreleasePool::new() };
+            let session = NSURLSession::shared(&pool);
+            let (mut continuation, completion) = Continuation::new();
+            //need to be able to send the filename into the completion handler
+            let move_filename = self.file_name.clone();
+            let mut task = session.downloadTaskWithRequestCompletionHandler(self.request.as_immutable(),&pool, move |result| {
+                let result = result.map(|r| {
+                    //I assume there's a pool when we're called back from foundation
+                    let pool = unsafe{ ActiveAutoreleasePool::assume_autoreleasepool() };
+                    let current_path = PathBuf::from(r.0.path(&pool).unwrap().to_str(&pool));
+                    let dir = tempdir().unwrap();
+
+                    let new_path = dir.path().join(move_filename);
+                    std::fs::rename(current_path,new_path.clone()).unwrap();
+                    Downloaded::new(dir,new_path)
+                });
+                completion.complete(result);
+            });
+            task.resume(&pool);
+            continuation.accept(DownloadTaskDropper(task));
+            continuation
+        };
+        let result = continuation.await
+            .map_err(|e| {
+                autoreleasepool(|pool| {
+                    Error::with_nserror(&e.0,&pool)
+                })
+            })?;
+        Ok(result)
+
+    }
+
 }
 
 #[test] fn github() {
-    let r = Request::new(objc_nsstring!("https://sealedabstract.com")).unwrap();
+    let mut r = Request::new(objc_nsstring!("https://sealedabstract.com")).unwrap();
     let future = r
         .header(objc_nsstring!("Accept"),Some(objc_nsstring!("application/vnd.github.v3+json")))
         .header(objc_nsstring!("Authorization"), Some(objc_nsstring!("token foobar")))
@@ -98,5 +165,14 @@ impl Request {
     let response = result.unwrap();
     let data = response.check_status().unwrap();
     println!("{:?}",data);
+}
 
+#[test] fn download() {
+    let mut r = Request::new(objc_nsstring!("https://sealedabstract.com/index.html")).unwrap();
+    let future = r
+        .download();
+
+    let result = kiruna::test::test_await(future, std::time::Duration::from_secs(10));
+    let response = result.unwrap();
+    println!("{:?}",response);
 }
