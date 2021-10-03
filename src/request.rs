@@ -1,5 +1,5 @@
 use foundationr::{NSMutableURLRequest, NSURL, NSData, NSURLSession, magic_string::*, autoreleasepool, NSURLSessionDataTask, NSURLSessionDownloadTask};
-use objr::bindings::{StrongMutCell, objc_nsstring, AutoreleasePool, ActiveAutoreleasePool};
+use objr::bindings::{StrongMutCell, AutoreleasePool, ActiveAutoreleasePool};
 use super::Error;
 use crate::response::{Response, Downloaded};
 use foundationr::magic_string::MagicString;
@@ -154,25 +154,29 @@ impl Request {
     }
 
 }
+#[cfg(test)] mod test {
+    use objr::bindings::objc_nsstring;
+    use crate::Request;
+    #[test] fn github() {
+        let mut r = Request::new(objc_nsstring!("https://sealedabstract.com")).unwrap();
+        let future = r
+            .header(objc_nsstring!("Accept"),Some(objc_nsstring!("application/vnd.github.v3+json")))
+            .header(objc_nsstring!("Authorization"), Some(objc_nsstring!("token foobar")))
+            .perform();
+        let result = kiruna::test::test_await(future, std::time::Duration::from_secs(10));
+        let response = result.unwrap();
+        let data = response.check_status().unwrap();
+        println!("{:?}",data);
+    }
 
-#[test] fn github() {
-    let mut r = Request::new(objc_nsstring!("https://sealedabstract.com")).unwrap();
-    let future = r
-        .header(objc_nsstring!("Accept"),Some(objc_nsstring!("application/vnd.github.v3+json")))
-        .header(objc_nsstring!("Authorization"), Some(objc_nsstring!("token foobar")))
-        .perform();
-    let result = kiruna::test::test_await(future, std::time::Duration::from_secs(10));
-    let response = result.unwrap();
-    let data = response.check_status().unwrap();
-    println!("{:?}",data);
+    #[test] fn download() {
+        let mut r = Request::new(objc_nsstring!("https://sealedabstract.com/index.html")).unwrap();
+        let future = r
+            .download();
+
+        let result = kiruna::test::test_await(future, std::time::Duration::from_secs(10));
+        let response = result.unwrap();
+        println!("{:?}",response);
+    }
 }
 
-#[test] fn download() {
-    let mut r = Request::new(objc_nsstring!("https://sealedabstract.com/index.html")).unwrap();
-    let future = r
-        .download();
-
-    let result = kiruna::test::test_await(future, std::time::Duration::from_secs(10));
-    let response = result.unwrap();
-    println!("{:?}",response);
-}
