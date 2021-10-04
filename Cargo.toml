@@ -7,9 +7,10 @@ edition = "2018"
 
 [dependencies]
 foundationr = {path = "../foundationr",features=["nsurlsession"]}
-objr = {path = "../objr"}
+objr = {git = "https://github.com/drewcrawford/objr.git"}
 blocksr = {path = "../blocksr",features=["continuation"]}
 tempfile = "3.2.0"
+pcore = {path = "../pcore"}
 
 [dev-dependencies]
 kiruna = {path = "../kiruna",features=["test"]}

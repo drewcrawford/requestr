@@ -2,6 +2,7 @@ use foundationr::{NSData, autoreleasepool};
 use objr::bindings::{StrongCell};
 use std::convert::TryInto;
 use std::path::{PathBuf, Path};
+use pcore::release_pool::ReleasePool;
 
 ///An opaque data type, may wrap a platform-specific buffer
 #[derive(Debug)]
@@ -20,7 +21,7 @@ pub struct Response{
     data: Data,
 }
 impl Response {
-    pub fn new(response: StrongCell<foundationr::NSURLResponse>, data: StrongCell<foundationr::NSData>) -> Response {
+    pub(crate) fn new(response: StrongCell<foundationr::NSURLResponse>, data: StrongCell<foundationr::NSData>) -> Response {
         Response {
             response,
             data: Data{nsdata: data},
@@ -33,16 +34,14 @@ impl Response {
     ///
     /// If HTTP code suggests 'success', returns Ok(data).
     /// Otherwise, returns Err(statusCode,data).
-    pub fn check_status(&self) -> Result<&Data, (u16, &Data)> {
-        autoreleasepool(|pool| {
-            let code = self.response.statusCode(pool);
-            if code >= 200 && code <= 299 {
-                Ok(self.data())
-            }
-            else {
-                Err((code.try_into().unwrap(),self.data()))
-            }
-        })
+    pub fn check_status(&self, pool: &ReleasePool) -> Result<&Data, (u16, &Data)> {
+        let code = self.response.statusCode(pool);
+        if code >= 200 && code <= 299 {
+            Ok(self.data())
+        }
+        else {
+            Err((code.try_into().unwrap(),self.data()))
+        }
 
     }
 

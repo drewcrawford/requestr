@@ -18,8 +18,6 @@ Currently supported:
 
 */
 use std::fmt::{Formatter, Debug};
-use foundationr::{NSError, NSObjectTrait};
-use objr::bindings::ActiveAutoreleasePool;
 
 mod request;
 mod response;
@@ -30,7 +28,7 @@ pub use response::{Response,Downloaded};
 #[non_exhaustive]
 pub enum Error {
     InvalidURL(String),
-    PlatformError(String),
+    PlatformError(pcore::error::Error),
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -40,8 +38,8 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {}
 
 impl Error {
-    fn with_nserror(err: &NSError, pool: &ActiveAutoreleasePool) -> Self {
-        Self::PlatformError(err.description(pool).to_string())
+    fn with_perror(error: pcore::error::Error) -> Self {
+        Self::PlatformError(error)
     }
 }
 
