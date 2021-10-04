@@ -1,7 +1,7 @@
 use foundationr::{NSMutableURLRequest, NSURL, NSData, NSURLSession, magic_string::*, autoreleasepool, NSURLSessionDataTask, NSURLSessionDownloadTask};
 use objr::bindings::{StrongMutCell, ActiveAutoreleasePool};
-use super::Error;
-use crate::response::{Response, Downloaded};
+use crate::Error;
+use super::response::{Response, Downloaded};
 use blocksr::continuation::Continuation;
 use std::path::{PathBuf};
 use tempfile::tempdir;

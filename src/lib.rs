@@ -19,10 +19,10 @@ Currently supported:
 */
 use std::fmt::{Formatter, Debug};
 
-mod request;
-mod response;
-pub use request::Request;
-pub use response::{Response,Downloaded};
+mod macos;
+
+pub use macos::request::Request;
+pub use macos::response::{Response,Downloaded};
 
 #[derive(Debug)]
 #[non_exhaustive]
