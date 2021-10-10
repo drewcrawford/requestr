@@ -19,16 +19,39 @@ Currently supported:
 */
 use std::fmt::{Formatter, Debug};
 
+#[cfg(target_os = "macos")]
 mod macos;
 
+#[cfg(target_os = "windows")]
+mod windows;
+
+#[cfg(target_os = "macos")]
 pub use macos::request::Request;
+
+#[cfg(target_os = "windows")]
+pub use self::windows::request::Request;
+
+#[cfg(target_os = "windows")]
+#[doc(hidden)]
+pub use wchar::wchz as __wchz;
+
+#[cfg(target_os = "macos")]
 pub use macos::response::{Response,Downloaded};
+
+
 
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
     InvalidURL(String),
-    PlatformError(pcore::error::Error),
+    PlatformError(requestr_winbindings::Error),
+    PcoreError(pcore::error::Error),
+    StatusCode(u16),
+}
+impl From<requestr_winbindings::Error> for Error {
+    fn from(e: requestr_winbindings::Error) -> Self {
+        Error::PlatformError(e)
+    }
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -37,9 +60,4 @@ impl std::fmt::Display for Error {
 }
 impl std::error::Error for Error {}
 
-impl Error {
-    fn with_perror(error: pcore::error::Error) -> Self {
-        Self::PlatformError(error)
-    }
-}
 

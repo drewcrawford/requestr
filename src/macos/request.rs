@@ -5,7 +5,7 @@ use super::response::{Response, Downloaded};
 use blocksr::continuation::Continuation;
 use std::path::{PathBuf};
 use tempfile::tempdir;
-use pcore::string::{Pstr};
+use pcore::string::{Pstr, PString};
 use pcore::release_pool::ReleasePool;
 use std::future::Future;
 
@@ -38,7 +38,7 @@ impl Request {
     /// May error if the URL is invalid
     // - todo: We could potentially optimize this by writing our options into a rust-like struct
     // and eliding a bunch of intermediate autoreleasepools into one big fn
-    pub fn new(url: &Pstr, pool: &ReleasePool) ->
+    pub fn new(url: Pstring, pool: &ReleasePool) ->
                                      Result<Request, Error> {
         let nsurl = NSURL::from_string(url.as_platform_str(), pool).ok_or_else(|| Error::InvalidURL(url.to_string(pool)))?;
         let request = NSMutableURLRequest::from_url(&nsurl,pool);
@@ -57,13 +57,13 @@ impl Request {
 
     }
     ///Set (or unset) a header field
-    pub fn header(&mut self, key: &Pstr,value: Option<&Pstr>, pool: &ReleasePool) -> &mut Self {
+    pub fn header(&mut self, key: &Pstr,value: Option<PString>, pool: &ReleasePool) -> &mut Self {
         let value = value.map(|v| v.as_platform_str());
         self.request.setValueForHTTPHeaderField(value, key.as_platform_str(), pool);
         self
     }
     ///Set the HTTP method.
-    pub fn method<M: MagicString>(&mut self, method: M) -> &mut Self{
+    pub fn method(&mut self, method: PString) -> &mut Self{
         autoreleasepool(|pool| {
             let method = method.as_intermediate_string(pool);
             let method = method.as_nsstring();
