@@ -28,31 +28,31 @@ impl<'a> Request<'a> {
     /// On Windows, this will not fail.
     // - todo: We could potentially optimize this by writing our options into a rust-like struct
     // and eliding a bunch of intermediate autoreleasepools into one big fn
-    pub fn new<U: IntoParameterString<'a>>(url: U) ->
+    pub fn new<U: IntoParameterString<'a>>(url: U, pool: &ReleasePool) ->
     Result<Request<'a>, Error> {
         Ok(
             Request{
-                url: url.into_parameter_string(),
+                url: url.into_parameter_string(pool),
                 headers: HashMap::new(),
-                method: pstr!("GET").into_parameter_string(),
+                method: pstr!("GET").into_parameter_string(pool),
                 body: None
             }
         )
 
     }
     ///Set (or unset) a header field
-    pub fn header<K: IntoParameterString<'a>,V:IntoParameterString<'a>>(mut self, key: K,value: Option<V>) -> Self {
+    pub fn header<K: IntoParameterString<'a>,V:IntoParameterString<'a>>(mut self, key: K,value: Option<V>, pool: &ReleasePool) -> Self {
         match value {
-            Some(v) => {self.headers.insert(key.into_parameter_string(), v.into_parameter_string());}
+            Some(v) => {self.headers.insert(key.into_parameter_string(pool), v.into_parameter_string(pool));}
             None => {
-                self.headers.remove(&key.into_parameter_string());
+                self.headers.remove(&key.into_parameter_string(pool));
             }
         }
         self
     }
     ///Set the HTTP method.
-    pub fn method<P: IntoParameterString<'a>>(mut self, method: P) -> Self{
-        self.method = method.into_parameter_string();
+    pub fn method<P: IntoParameterString<'a>>(mut self, method: P, pool: &ReleasePool) -> Self{
+        self.method = method.into_parameter_string(pool);
         self
     }
     ///Set the HTTP body data.
@@ -177,10 +177,10 @@ impl<'a> DeferredRequest<'a> {
     use pcore::pstr;
     #[test] fn github() {
         autoreleasepool(|pool| {
-            let r = Request::new(pstr!("https://sealedabstract.com")).unwrap();
+            let r = Request::new(pstr!("https://sealedabstract.com"),pool).unwrap();
             let future = r
-                .header(pstr!("Accept"),Some(pstr!("application/vnd.github.v3+json")))
-                .header(pstr!("Authorization"), Some(pstr!("token foobar")))
+                .header(pstr!("Accept"),Some(pstr!("application/vnd.github.v3+json")),pool)
+                .header(pstr!("Authorization"), Some(pstr!("token foobar")),pool)
                 .perform(pool);
             let result = kiruna::test::test_await(future, std::time::Duration::from_secs(5));
             let response = result.unwrap();
@@ -191,7 +191,7 @@ impl<'a> DeferredRequest<'a> {
 
     #[test] fn download() {
         autoreleasepool(|pool| {
-            let r = Request::new(pstr!("https://sealedabstract.com/index.html")).unwrap();
+            let r = Request::new(pstr!("https://sealedabstract.com/index.html"),pool).unwrap();
             let future = r
                 .download(pool);
 
