@@ -11,7 +11,7 @@ impl Drop for Downloaded {
             let pwstr: PWSTR = std::mem::transmute(self.0.into_unsafe_const_pwzstr());
             let r = DeleteFileW(pwstr);
             if r.0 == 0 {
-                panic!("{:?}",pcore::error::Error::last())
+                panic!("{:?}",pcore::error::Error::win32_last())
             }
         }
 
@@ -37,7 +37,7 @@ impl Response {
         }
     }
     pub async fn data(&mut self) -> &Data {
-        use requestr_winbindings::Interface;
+        use windows::Interface;
         let m = &mut self.data;
         match m {
             None => {

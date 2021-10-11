@@ -6,6 +6,7 @@ https://github.com/microsoft/windows-rs/issues/81#issuecomment-903175223
 use requestr_winbindings::Windows::Win32::System::WinRT::IBufferByteAccess;
 use requestr_winbindings::Windows::Web::Http::{IHttpContent,HttpBufferContent};
 use requestr_winbindings::Windows::Storage::Streams::IBuffer;
+use ::windows::*;
 #[implement(Windows::Win32::System::WinRT::IBufferByteAccess,Windows::Storage::Streams::IBuffer)]
 pub struct WinBuffer(pub Box<[u8]>);
 #[allow(non_snake_case)]

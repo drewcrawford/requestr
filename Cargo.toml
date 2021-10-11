@@ -17,7 +17,7 @@ requestr-winbindings = {path = "winbindings"}
 widestring = "0.4.3"
 once_cell = "1.8.0"
 wchar = "0.11.0"
-windows = {path = "../windows-rs"}
+windows = "0.21.1"
 
 [dependencies]
 pcore = {path = "../pcore"}

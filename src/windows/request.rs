@@ -21,7 +21,6 @@ pub struct Request<'a> {
 
 
 
-
 impl<'a> Request<'a> {
     ///Create a new builder with the given URL.
     ///
@@ -79,7 +78,7 @@ impl<'a> Request<'a> {
         use requestr_winbindings::Windows::Win32::Storage::FileSystem::{GetTempPathW,GetTempFileNameW};
         use requestr_winbindings::Windows::Win32::Foundation::{MAX_PATH,PWSTR};
         use requestr_winbindings::Windows::Storage::Streams::IOutputStream;
-        use requestr_winbindings::Interface;
+        use windows::Interface;
         let deferred_request = DeferredRequest::new(self);
         let response = deferred_request.perform()?.await?;
         let status = response.StatusCode().unwrap().0;
@@ -95,7 +94,7 @@ impl<'a> Request<'a> {
             GetTempPathW(buf.assume_init().len() as u32,lpbuffer)
         };
         if r == 0 {
-            return Err(Error::PcoreError(pcore::error::Error::last()))
+            return Err(Error::PcoreError(pcore::error::Error::win32_last()))
         }
         //get temporary path
         let mut filepath: MaybeUninit<[u16; MAX_PATH as usize +1]> = MaybeUninit::uninit();
@@ -105,11 +104,11 @@ impl<'a> Request<'a> {
             GetTempFileNameW(pathbuf,prefixstring, 0, PWSTR(filepath.assume_init_mut().as_mut_ptr()))
         };
         if r == 0 {
-            return Err(Error::PcoreError(pcore::error::Error::last()))
+            return Err(Error::PcoreError(pcore::error::Error::win32_last()))
         }
         let tempfile_str = unsafe{U16ZErasedLength::with_u16_z_unknown_length(filepath.assume_init_mut()).find_length().to_owned()};
         let mut header = MaybeUninit::uninit();
-        let winfile = StorageFile::GetFileFromPathAsync(unsafe{tempfile_str.into_unsafe_hstring(header.assume_init_mut())}).unwrap().await?;
+        let winfile = StorageFile::GetFileFromPathAsync(&unsafe{tempfile_str.into_hstring_trampoline(header.assume_init_mut())}).unwrap().await?;
         let opened_file = winfile.OpenAsync(FileAccessMode::ReadWrite)?.await?;
         let output_stream = opened_file.GetOutputStreamAt(0).unwrap();
         let output_stream: IOutputStream = output_stream.cast().unwrap();
@@ -141,24 +140,24 @@ impl<'a> DeferredRequest<'a> {
         let client = HttpClient::new().unwrap();
         let headers = client.DefaultRequestHeaders().unwrap();
         let mut str_header = MaybeUninit::uninit();
-        let useragent = unsafe{pstr!("drewcrawford/requestr 0.1 (rust)").into_unsafe_hstring(&mut str_header)};
-        headers.UserAgent().unwrap().ParseAdd(useragent).unwrap();
+        let useragent = unsafe{pstr!("drewcrawford/requestr 0.1 (rust)").into_hstring_trampoline(&mut str_header)};
+        headers.UserAgent().unwrap().ParseAdd(&useragent).unwrap();
         for header in self.headers {
             unsafe {
                 let mut key_header = MaybeUninit::uninit();
                 let mut value_header = MaybeUninit::uninit();
-                let key_hstr = header.0.into_unsafe_hstring(&mut key_header);
-                let val_hstr = header.1.into_unsafe_hstring(&mut value_header);
-                headers.Append(key_hstr,val_hstr).unwrap();
+                let key_hstr = header.0.into_hstring_trampoline(&mut key_header);
+                let val_hstr = header.1.into_hstring_trampoline(&mut value_header);
+                headers.Append(&key_hstr,&val_hstr).unwrap();
             }
         }
 
         let mut str_header = MaybeUninit::uninit();
-        let uri = Uri::CreateUri(unsafe{self.url.into_unsafe_hstring(&mut str_header)})?;
+        let uri = Uri::CreateUri(&unsafe{self.url.into_hstring_trampoline(&mut str_header)})?;
         let request_message = HttpRequestMessage::new().unwrap();
         let mut str_header = MaybeUninit::uninit();
 
-        let http_method = HttpMethod::Create(unsafe{self.method.into_unsafe_hstring(&mut str_header)}).unwrap();
+        let http_method = HttpMethod::Create(unsafe{&self.method.into_hstring_trampoline(&mut str_header)}).unwrap();
         request_message.SetMethod(http_method).unwrap();
         request_message.SetRequestUri(uri).unwrap();
         match self.body {

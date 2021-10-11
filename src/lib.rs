@@ -44,12 +44,12 @@ pub use macos::response::{Response,Downloaded};
 #[non_exhaustive]
 pub enum Error {
     InvalidURL(String),
-    PlatformError(requestr_winbindings::Error),
+    PlatformError(::windows::Error),
     PcoreError(pcore::error::Error),
     StatusCode(u16),
 }
-impl From<requestr_winbindings::Error> for Error {
-    fn from(e: requestr_winbindings::Error) -> Self {
+impl From<::windows::Error> for Error {
+    fn from(e: ::windows::Error) -> Self {
         Error::PlatformError(e)
     }
 }
