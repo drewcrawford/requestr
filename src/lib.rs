@@ -44,10 +44,12 @@ pub use macos::response::{Response,Downloaded};
 #[non_exhaustive]
 pub enum Error {
     InvalidURL(String),
+    #[cfg(target_os = "windows")]
     PlatformError(::windows::Error),
     PcoreError(pcore::error::Error),
     StatusCode(u16),
 }
+#[cfg(target_os = "windows")]
 impl From<::windows::Error> for Error {
     fn from(e: ::windows::Error) -> Self {
         Error::PlatformError(e)

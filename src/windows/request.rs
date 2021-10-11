@@ -22,26 +22,19 @@ pub struct Request<'a> {
 
 
 impl<'a> Request<'a> {
-    ///Create a new builder with the given URL.
-    ///
-    /// # Errors
-    /// On Windows, this will not fail.
-    // - todo: We could potentially optimize this by writing our options into a rust-like struct
-    // and eliding a bunch of intermediate autoreleasepools into one big fn
-    pub fn new<U: IntoParameterString<'a>>(url: U) ->
-    Result<Request<'a>, Error> {
-        Ok(
-            Request{
-                url: url.into_parameter_string(),
-                headers: HashMap::new(),
-                method: pstr!("GET").into_parameter_string(),
-                body: None
-            }
-        )
+    /// On some platforms, Error::InvalidURL may be raised int his method
+    pub fn new<U: IntoParameterString<'a>>(url: U, pool: &ReleasePool) ->
+    Result<Request<'a>,Error> {
+    Ok(Request{
+            url: url.into_parameter_string(),
+            headers: HashMap::new(),
+            method: pstr!("GET").into_parameter_string(),
+            body: None
+        })
 
     }
     ///Set (or unset) a header field
-    pub fn header<K: IntoParameterString<'a>,V:IntoParameterString<'a>>(mut self, key: K,value: Option<V>) -> Self {
+    pub fn header<K: IntoParameterString<'a>,V:IntoParameterString<'a>>(mut self, key: K,value: Option<V>,_pool: &ReleasePool) -> Self {
         match value {
             Some(v) => {self.headers.insert(key.into_parameter_string(), v.into_parameter_string());}
             None => {
