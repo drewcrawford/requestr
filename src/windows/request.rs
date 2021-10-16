@@ -73,48 +73,51 @@ impl<'a> Request<'a> {
     ///Downloads the request into a file.
     ///
     /// The file will be located in a temporary directory and will be deleted when the return value is dropped.
-    pub async fn download(self, _pool: &ReleasePool) -> Result<Downloaded,Error>{
-        use requestr_winbindings::Windows::Storage::{StorageFile,FileAccessMode};
-        use requestr_winbindings::Windows::Win32::Storage::FileSystem::{GetTempPathW,GetTempFileNameW};
-        use requestr_winbindings::Windows::Win32::Foundation::{MAX_PATH,PWSTR};
-        use requestr_winbindings::Windows::Storage::Streams::IOutputStream;
-        use windows::Interface;
-        let deferred_request = DeferredRequest::new(self);
-        let response = deferred_request.perform()?.await?;
-        let status = response.StatusCode().unwrap().0;
-        if status >299 || status < 200 {
-            return Err(Error::StatusCode(status as u16));
-        }
-        let content_stream = response.Content().unwrap();
+    pub fn download(self, _pool: &ReleasePool) -> impl Future<Output=Result<Downloaded,Error>> + 'a{
+        async {
+            use requestr_winbindings::Windows::Storage::{StorageFile,FileAccessMode};
+            use requestr_winbindings::Windows::Win32::Storage::FileSystem::{GetTempPathW,GetTempFileNameW};
+            use requestr_winbindings::Windows::Win32::Foundation::{MAX_PATH,PWSTR};
+            use requestr_winbindings::Windows::Storage::Streams::IOutputStream;
+            use windows::Interface;
+            let deferred_request = DeferredRequest::new(self);
+            let response = deferred_request.perform()?.await?;
+            let status = response.StatusCode().unwrap().0;
+            if status >299 || status < 200 {
+                return Err(Error::StatusCode(status as u16));
+            }
+            let content_stream = response.Content().unwrap();
 
-        //get temporary directory
-        let mut buf: MaybeUninit<[u16; MAX_PATH as usize +1]> = MaybeUninit::uninit();
-        let r = unsafe {
-            let lpbuffer = PWSTR(buf.assume_init_mut().as_mut_ptr());
-            GetTempPathW(buf.assume_init().len() as u32,lpbuffer)
-        };
-        if r == 0 {
-            return Err(Error::PcoreError(pcore::error::Error::win32_last()))
+            //get temporary directory
+            let mut buf: MaybeUninit<[u16; MAX_PATH as usize +1]> = MaybeUninit::uninit();
+            let r = unsafe {
+                let lpbuffer = PWSTR(buf.assume_init_mut().as_mut_ptr());
+                GetTempPathW(buf.assume_init().len() as u32,lpbuffer)
+            };
+            if r == 0 {
+                return Err(Error::PcoreError(pcore::error::Error::win32_last()))
+            }
+            //get temporary path
+            let mut filepath: MaybeUninit<[u16; MAX_PATH as usize +1]> = MaybeUninit::uninit();
+            let r= unsafe {
+                let pathbuf = PWSTR(buf.assume_init_mut().as_mut_ptr());
+                let prefixstring: PWSTR = std::mem::transmute(pcore::pstr!("drs").into_unsafe_const_pwzstr());
+                GetTempFileNameW(pathbuf,prefixstring, 0, PWSTR(filepath.assume_init_mut().as_mut_ptr()))
+            };
+            if r == 0 {
+                return Err(Error::PcoreError(pcore::error::Error::win32_last()))
+            }
+            let tempfile_str = unsafe{U16ZErasedLength::with_u16_z_unknown_length(filepath.assume_init_mut()).find_length().to_owned()};
+            let mut header = MaybeUninit::uninit();
+            let winfile = StorageFile::GetFileFromPathAsync(&unsafe{tempfile_str.into_hstring_trampoline(header.assume_init_mut())}).unwrap().await?;
+            let opened_file = winfile.OpenAsync(FileAccessMode::ReadWrite)?.await?;
+            let output_stream = opened_file.GetOutputStreamAt(0).unwrap();
+            let output_stream: IOutputStream = output_stream.cast().unwrap();
+            content_stream.WriteToStreamAsync(output_stream)?.await?;
+            println!("wrote to tempfile_str {:?}",tempfile_str);
+            Ok(Downloaded(tempfile_str))
         }
-        //get temporary path
-        let mut filepath: MaybeUninit<[u16; MAX_PATH as usize +1]> = MaybeUninit::uninit();
-        let r= unsafe {
-            let pathbuf = PWSTR(buf.assume_init_mut().as_mut_ptr());
-            let prefixstring: PWSTR = std::mem::transmute(pcore::pstr!("drs").into_unsafe_const_pwzstr());
-            GetTempFileNameW(pathbuf,prefixstring, 0, PWSTR(filepath.assume_init_mut().as_mut_ptr()))
-        };
-        if r == 0 {
-            return Err(Error::PcoreError(pcore::error::Error::win32_last()))
-        }
-        let tempfile_str = unsafe{U16ZErasedLength::with_u16_z_unknown_length(filepath.assume_init_mut()).find_length().to_owned()};
-        let mut header = MaybeUninit::uninit();
-        let winfile = StorageFile::GetFileFromPathAsync(&unsafe{tempfile_str.into_hstring_trampoline(header.assume_init_mut())}).unwrap().await?;
-        let opened_file = winfile.OpenAsync(FileAccessMode::ReadWrite)?.await?;
-        let output_stream = opened_file.GetOutputStreamAt(0).unwrap();
-        let output_stream: IOutputStream = output_stream.cast().unwrap();
-        content_stream.WriteToStreamAsync(output_stream)?.await?;
-        println!("wrote to tempfile_str {:?}",tempfile_str);
-        Ok(Downloaded(tempfile_str))
+
     }
 
 }

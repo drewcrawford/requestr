@@ -50,9 +50,7 @@ impl Response {
 #[derive(Debug)]
 pub struct Downloaded(tempfile::TempDir,PathBuf);
 impl Downloaded {
-    pub fn as_path(&self) -> &Path {
-        &self.1
-    }
+    pub fn copy_path(&self) -> PathBuf { self.1.clone() }
     pub(crate) fn new(dir: tempfile::TempDir, path_buf: PathBuf) -> Self {
         Self(dir,path_buf)
     }

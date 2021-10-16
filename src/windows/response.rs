@@ -1,7 +1,16 @@
 use pcore::release_pool::ReleasePool;
 use pcore::string::IntoParameterString;
+use requestr_winbindings::Windows::Storage::Streams::IBuffer;
+use windows::Interface;
+
 #[derive(Debug)]
 pub struct Downloaded(pub(crate) OwnedString);
+impl Downloaded {
+    pub fn copy_path(&self) -> PathBuf {
+        PathBuf::from_str(&self.0.to_string()).unwrap()
+    }
+}
+
 
 impl Drop for Downloaded {
     fn drop(&mut self) {
@@ -20,6 +29,8 @@ impl Drop for Downloaded {
 use requestr_winbindings::Windows::Web::Http::HttpResponseMessage;
 use requestr_winbindings::Windows::Win32::System::WinRT::IBufferByteAccess;
 use pcore::string::{OwnedString};
+use std::path::{PathBuf};
+use std::str::FromStr;
 
 pub struct Response {
     response: HttpResponseMessage,
@@ -29,6 +40,13 @@ pub struct Response {
 #[derive(Debug)]
 pub struct Data(IBufferByteAccess);
 
+impl Data {
+    pub fn as_slice(&self) -> &[u8] {
+        let len = self.0.cast::<IBuffer>().unwrap().Length().unwrap() as usize;
+        unsafe { std::slice::from_raw_parts(self.0.Buffer().unwrap(), len)}
+    }
+}
+
 impl Response {
     pub(crate) fn new(response: HttpResponseMessage) -> Self {
         Self {
@@ -37,7 +55,6 @@ impl Response {
         }
     }
     pub async fn data(&mut self) -> &Data {
-        use windows::Interface;
         let m = &mut self.data;
         match m {
             None => {
