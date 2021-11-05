@@ -7,7 +7,7 @@ edition = "2018"
 
 [target.'cfg(target_os="macos")'.dependencies]
 blocksr = {git = "https://github.com/drewcrawford/blocksr.git",features=["continuation"]}
-foundationr = {path = "../foundationr",features=["nsurlsession"]}
+foundationr = {git = "https://github.com/drewcrawford/foundationr",features=["nsurlsession"]}
 objr = {git = "https://github.com/drewcrawford/objr.git"}
 tempfile = "3.2.0"
 

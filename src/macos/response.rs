@@ -1,7 +1,7 @@
 use foundationr::{NSData, autoreleasepool};
 use objr::bindings::{StrongCell};
 use std::convert::TryInto;
-use std::path::{PathBuf, Path};
+use std::path::{PathBuf};
 use pcore::release_pool::ReleasePool;
 
 ///An opaque data type, may wrap a platform-specific buffer

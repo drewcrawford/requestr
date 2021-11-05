@@ -1,4 +1,4 @@
-use foundationr::{NSMutableURLRequest, NSURL, NSURLSession, magic_string::*, autoreleasepool, NSURLSessionDataTask, NSURLSessionDownloadTask, NSString, DataTaskResult, NSError, NSURLResponse, NSData};
+use foundationr::{NSMutableURLRequest, NSURL, NSURLSession, autoreleasepool, NSURLSessionDataTask, NSURLSessionDownloadTask, NSString, DataTaskResult, NSError, NSURLResponse, NSData};
 use objr::bindings::{StrongMutCell, ActiveAutoreleasePool, StrongLifetimeCell, StrongCell};
 use crate::Error;
 use super::response::{Response, Downloaded};
@@ -91,7 +91,7 @@ impl<'a> Request<'a> {
             Continuation(Continuation<DataTaskDropper,DataTaskResult>),
             Error(Error)
         }
-        let input = match NSURL::from_string(self.url.as_nsstring(), pool) {
+        let input = match NSURL::from_string(&self.url, pool) {
             None => {
                 FutureInput::Error(Error::InvalidURL(self.url.to_str(pool).to_owned()))
             }
@@ -145,7 +145,7 @@ impl<'a> Request<'a> {
             Continuation(Continuation<DownloadTaskDropper, Result<Downloaded, (StrongCell<NSError>, Option<StrongCell<NSURLResponse>>)>>),
             Error(Error)
         }
-        let input = match NSURL::from_string(self.url.as_nsstring(),pool) {
+        let input = match NSURL::from_string(&self.url,pool) {
             None => {
                 FutureInput::Error(Error::InvalidURL(self.url.to_str(pool).to_string()))
             }
