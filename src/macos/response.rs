@@ -3,6 +3,7 @@ use objr::bindings::{StrongCell};
 use std::convert::TryInto;
 use std::path::{PathBuf};
 use pcore::release_pool::ReleasePool;
+use crate::Error;
 
 ///An opaque data type, may wrap a platform-specific buffer
 #[derive(Debug)]
@@ -48,11 +49,27 @@ impl Response {
 }
 
 #[derive(Debug)]
-pub struct Downloaded(tempfile::TempDir,PathBuf);
+pub struct Downloaded{
+    tempfile: tempfile::TempDir,
+    pathbuf: PathBuf,
+    code: u16,
+}
 impl Downloaded {
-    pub fn copy_path(&self) -> PathBuf { self.1.clone() }
-    pub(crate) fn new(dir: tempfile::TempDir, path_buf: PathBuf) -> Self {
-        Self(dir,path_buf)
+    pub fn copy_path(&self) -> PathBuf { self.pathbuf.clone() }
+    pub(crate) fn new(dir: tempfile::TempDir, path_buf: PathBuf, code: u16) -> Self {
+        Self {
+            tempfile: dir,
+            pathbuf: path_buf,
+            code
+        }
+    }
+    pub fn check_status(&self) -> Result<(),Error> {
+        if self.code < 200 || self.code >= 299 {
+            Err(Error::StatusCode(self.code))
+        }
+        else {
+            Ok(())
+        }
     }
 
 }

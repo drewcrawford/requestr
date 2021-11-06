@@ -172,7 +172,7 @@ impl<'a> Request<'a> {
 
                         let new_path = dir.path().join(move_filename);
                         std::fs::rename(current_path,new_path.clone()).unwrap();
-                        Downloaded::new(dir,new_path)
+                        Downloaded::new(dir,new_path, r.1.statusCode(&pool) as u16)
                     });
                     completion.complete(result);
                 });
