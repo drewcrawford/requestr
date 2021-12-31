@@ -168,6 +168,7 @@ impl<'a> Request<'a> {
                         //I assume there's a pool when we're called back from foundation
                         let pool = unsafe{ ActiveAutoreleasePool::assume_autoreleasepool() };
                         let current_path = PathBuf::from(r.0.path(&pool).unwrap().to_str(&pool));
+                        eprintln!("original path {:?}",current_path);
                         let dir = tempdir().unwrap();
 
                         let new_path = dir.path().join(move_filename);

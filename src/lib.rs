@@ -1,11 +1,12 @@
-/*! Drew's high-level request library
+/*! Drew's high-level HTTP client library for Rust
 
 This library can be compared to [reqwest](https://github.com/seanmonstar/reqwest/blob/master/Cargo.toml), but rather
-than remaking the whole world (TLS, HTTP, etc.) in Rust, it wraps some high-level OS API and talks to that instead.
+than remaking the whole world (TLS, HTTP, etc.) in Rust, it wraps some high-level OS API and talks to that instead.  Free for
+noncommercial or "small commercial" use.
 
 Advantages:
 * Smaller binaries, faster compiles
-* Don't have to update, recompile etc. to resolve security issues or get HTTP3
+* Don't have to update dependencies, recompile etc. to resolve security issues or get HTTP3
 * Access platform-specific features with a platform-neutral API
 
 Disadvantages:
@@ -14,7 +15,8 @@ Disadvantages:
 * Not as popular
 
 Currently supported:
-* macOS - uses NSURLSession as backend
+* macOS - uses `NSURLSession` as backend
+* windows - uses `HTTPClient` as backend
 
 */
 use std::fmt::{Formatter, Debug};
