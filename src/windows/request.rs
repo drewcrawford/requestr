@@ -7,9 +7,10 @@ use std::mem::MaybeUninit;
 use pcore::string::{IntoParameterString, ParameterString, U16ZErasedLength};
 use pcore::release_pool::ReleasePool;
 use pcore::pstr;
-use requestr_winbindings::Windows::Foundation::IAsyncOperationWithProgress;
-use requestr_winbindings::Windows::Web::Http::{HttpResponseMessage,HttpProgress};
+use windows::Foundation::IAsyncOperationWithProgress;
+use windows::Web::Http::{HttpResponseMessage,HttpProgress};
 use crate::windows::bufferbridge::WinBuffer;
+use winfuture::AsyncFuture;
 
 pub struct Request<'a> {
     url: ParameterString<'a>,
@@ -64,7 +65,7 @@ impl<'a> Request<'a> {
     pub fn perform(self, _release_pool: &ReleasePool) -> impl Future<Output=Result<Response,Error>> + 'a {
             let deferred_request = DeferredRequest::new(self);
             async {
-                let new_request = deferred_request.perform().unwrap();
+                let new_request = AsyncFuture::new(deferred_request.perform().unwrap());
                 let r = new_request.await?;
                 Ok(Response::new(r))
             }
@@ -75,13 +76,12 @@ impl<'a> Request<'a> {
     /// The file will be located in a temporary directory and will be deleted when the return value is dropped.
     pub fn download(self, _pool: &ReleasePool) -> impl Future<Output=Result<Downloaded,Error>> + 'a{
         async {
-            use requestr_winbindings::Windows::Storage::{StorageFile,FileAccessMode};
-            use requestr_winbindings::Windows::Win32::Storage::FileSystem::{GetTempPathW,GetTempFileNameW};
-            use requestr_winbindings::Windows::Win32::Foundation::{MAX_PATH,PWSTR};
-            use requestr_winbindings::Windows::Storage::Streams::IOutputStream;
-            use windows::Interface;
+            use windows::Storage::{StorageFile,FileAccessMode};
+            use windows::Win32::Storage::FileSystem::{GetTempPathW,GetTempFileNameW};
+            use windows::Win32::Foundation::{MAX_PATH,PWSTR};
+            use windows::Storage::Streams::IOutputStream;
             let deferred_request = DeferredRequest::new(self);
-            let response = deferred_request.perform()?.await?;
+            let response = AsyncFuture::new(deferred_request.perform()?).await?;
             let status = response.StatusCode().unwrap().0;
             if status >299 || status < 200 {
                 return Err(Error::StatusCode(status as u16));
@@ -109,11 +109,12 @@ impl<'a> Request<'a> {
             }
             let tempfile_str = unsafe{U16ZErasedLength::with_u16_z_unknown_length(filepath.assume_init_mut()).find_length().to_owned()};
             let mut header = MaybeUninit::uninit();
-            let winfile = StorageFile::GetFileFromPathAsync(&unsafe{tempfile_str.into_hstring_trampoline(header.assume_init_mut())}).unwrap().await?;
-            let opened_file = winfile.OpenAsync(FileAccessMode::ReadWrite)?.await?;
+            let winfile = AsyncFuture::new(StorageFile::GetFileFromPathAsync(&unsafe{tempfile_str.into_hstring_trampoline(header.assume_init_mut())}).unwrap()).await?;
+            let opened_file = AsyncFuture::new(winfile.OpenAsync(FileAccessMode::ReadWrite)?).await?;
             let output_stream = opened_file.GetOutputStreamAt(0).unwrap();
+            use windows::core::Interface;
             let output_stream: IOutputStream = output_stream.cast().unwrap();
-            content_stream.WriteToStreamAsync(output_stream)?.await?;
+            AsyncFuture::new(content_stream.WriteToStreamAsync(output_stream)?).await?;
             println!("wrote to tempfile_str {:?}",tempfile_str);
             Ok(Downloaded(tempfile_str))
         }
@@ -138,8 +139,8 @@ impl<'a> DeferredRequest<'a> {
         }
     }
     fn perform(self) -> Result<IAsyncOperationWithProgress<HttpResponseMessage, HttpProgress>,Error> {
-        use requestr_winbindings::Windows::Web::Http::{HttpClient,HttpRequestMessage,HttpMethod};
-        use requestr_winbindings::Windows::Foundation::Uri;
+        use windows::Web::Http::{HttpClient,HttpRequestMessage,HttpMethod};
+        use windows::Foundation::Uri;
         let client = HttpClient::new().unwrap();
         let headers = client.DefaultRequestHeaders().unwrap();
         let mut str_header = MaybeUninit::uninit();

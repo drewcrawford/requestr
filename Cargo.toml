@@ -13,11 +13,11 @@ tempfile = "~3"
 
 
 [target.'cfg(target_os="windows")'.dependencies]
-requestr-winbindings = {path = "winbindings"}
 widestring = "~0"
 once_cell = "~1"
 wchar = "~0"
-windows = "~0"
+windows = {version = "~0", features = ["Web","Web_Http","Web_Http_Headers","Win32_Storage_FileSystem","Storage","Storage_Streams","Win32_System_WinRT","build"]}
+winfuture = {git = "https://github.com/drewcrawford/winfuture"}
 
 [dependencies]
 pcore = {git = "https://github.com/drewcrawford/pcore"}

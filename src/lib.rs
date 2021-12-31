@@ -47,14 +47,22 @@ pub use macos::response::{Response,Downloaded};
 pub enum Error {
     InvalidURL(String),
     #[cfg(target_os = "windows")]
-    PlatformError(::windows::Error),
+    PlatformError(::windows::core::Error),
     PcoreError(pcore::error::Error),
     StatusCode(u16),
+    #[cfg(target_os = "windows")]
+    WinFuture(winfuture::Error),
 }
 #[cfg(target_os = "windows")]
-impl From<::windows::Error> for Error {
-    fn from(e: ::windows::Error) -> Self {
+impl From<::windows::core::Error> for Error {
+    fn from(e: ::windows::core::Error) -> Self {
         Error::PlatformError(e)
+    }
+}
+#[cfg(target_os = "windows")]
+impl From<winfuture::Error> for Error {
+    fn from(e: winfuture::Error) -> Self {
+        Error::WinFuture(e)
     }
 }
 impl std::fmt::Display for Error {

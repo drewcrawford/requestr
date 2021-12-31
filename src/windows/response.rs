@@ -1,7 +1,7 @@
+use std::fmt::{Debug, Formatter};
 use pcore::release_pool::ReleasePool;
 use pcore::string::IntoParameterString;
-use requestr_winbindings::Windows::Storage::Streams::IBuffer;
-use windows::Interface;
+use windows::Storage::Streams::IBuffer;
 
 #[derive(Debug)]
 pub struct Downloaded(pub(crate) OwnedString);
@@ -14,8 +14,8 @@ impl Downloaded {
 
 impl Drop for Downloaded {
     fn drop(&mut self) {
-        use requestr_winbindings::Windows::Win32::Storage::FileSystem::DeleteFileW;
-        use requestr_winbindings::Windows::Win32::Foundation::PWSTR;
+        use windows::Win32::Storage::FileSystem::DeleteFileW;
+        use windows::Win32::Foundation::PWSTR;
         unsafe {
             let pwstr: PWSTR = std::mem::transmute(self.0.into_unsafe_const_pwzstr());
             let r = DeleteFileW(pwstr);
@@ -26,22 +26,29 @@ impl Drop for Downloaded {
 
     }
 }
-use requestr_winbindings::Windows::Web::Http::HttpResponseMessage;
-use requestr_winbindings::Windows::Win32::System::WinRT::IBufferByteAccess;
+use windows::Web::Http::HttpResponseMessage;
+use windows::Win32::System::WinRT::IBufferByteAccess;
 use pcore::string::{OwnedString};
 use std::path::{PathBuf};
 use std::str::FromStr;
+use winfuture::AsyncFuture;
 
 pub struct Response {
     response: HttpResponseMessage,
     data: Option<Data>,
 }
 ///An opaque data type, may wrap a platform-specific buffer
-#[derive(Debug)]
 pub struct Data(IBufferByteAccess);
+//IBufferByteAccess does not implement Debug
+impl Debug for Data {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("Data({:?})",unsafe{self.0.Buffer()}))
+    }
+}
 
 impl Data {
     pub fn as_slice(&self) -> &[u8] {
+        use windows::core::Interface;
         let len = self.0.cast::<IBuffer>().unwrap().Length().unwrap() as usize;
         unsafe { std::slice::from_raw_parts(self.0.Buffer().unwrap(), len)}
     }
@@ -60,7 +67,8 @@ impl Response {
             None => {
                 let content = self.response.Content().unwrap();
                 let buffers = content.ReadAsBufferAsync().unwrap();
-                let b = buffers.await.unwrap();
+                let b = AsyncFuture::new(buffers).await.unwrap();
+                use windows::core::Interface;
                 let byte_access: IBufferByteAccess = b.cast().unwrap();
                 *m = Some(Data(byte_access));
                 m.as_ref().unwrap()
